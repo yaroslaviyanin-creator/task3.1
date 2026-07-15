@@ -1,18 +1,114 @@
-﻿/*
-main.c - главный модуль программы.
-Янин Ярослав Иванович
-Группа МК-101
+﻿#include <stdlib.h>
+#include <stdio.h>
+
+#define IN_FILE     "in.txt"        // входной файл
+#define OUT_FILE    "out.txt"       // выходной файл
+#define N           10              // размер блока для считывания символов из файла
+
+#define DIV_MOD(X, Y) (((X) == 0) ? 0 : ((X)%(Y)))  // остаток
+
+
+#define SMALL_BLOCK_HEIGHT	2       // N1 по условию (количество строк)  
+#define SMALL_BLOCK_WIDTH	3       // M1 по условию (количество столбцов)
+#define LARGE_BLOCK_HEIGHT	3       // N2 по условию (количество строк)
+#define LARGE_BLOCK_WIDTH	4       // M2 по условию (количество столбцов)
+
+
+#define GEN_MAX_LEN_STR     67      // максимальная длина генерируемой строки
+#define GEN_COUNT_STR       123     // количество генерируемых строк
+
+typedef char SmallBlock[SMALL_BLOCK_HEIGHT][SMALL_BLOCK_WIDTH];
+typedef SmallBlock LargeBlock[LARGE_BLOCK_HEIGHT][LARGE_BLOCK_WIDTH];
+
+size_t count_str_LargeBlock = SMALL_BLOCK_HEIGHT * LARGE_BLOCK_HEIGHT;      // count_str_LargeBlock - количество строк в блоке
+size_t count_sym_LargeBlock = SMALL_BLOCK_WIDTH * LARGE_BLOCK_WIDTH;        // count_sym_LargeBlock - количество символов в блоке
+
+
+
+/*void GenerateRandomString(char* str, unsigned int max_size) {
+
+unsigned int size = rand() % max_size;
+// генерация одной случайной строки
+
+}
 */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include "config.h"
+/*void GenerateRandomStrings() {
+
+    for (;;) {
+        char *p;
+        GenerateRandomString (p, 10);
+        }
+
+}
+*/
+
+// вывод строки на экран
+void print_string(LargeBlock** strings, size_t vindex) {
+    size_t n_lb = 0, n2 = 0, m2 = 0, n1 = 0, m1 = 0;                // текущие индексы для вложенных массивов
+    size_t strings_i, ostatok_str, ostatok_str_n2, ostatok_str_n1;  // переменные для расчета индексов строки
+    char b;
+
+    // индексы для строки
+
+    strings_i = vindex / count_str_LargeBlock;              // сколько больших блоков входит по высоте в строках
+    ostatok_str = DIV_MOD(vindex, count_str_LargeBlock);    // остаток
+
+    n2 = ostatok_str / SMALL_BLOCK_HEIGHT;                  // сколько маленьких блоков входит по высоте в строках
+    n1 = DIV_MOD(ostatok_str, SMALL_BLOCK_HEIGHT);          // остаток
+
+    printf("vindex = %zd, strings_i = %zd, ostatok_str = %zd, n2 = %zd, n1 = %zd     ", vindex, strings_i, ostatok_str, n2, n1);
+    do {
+        b = strings[strings_i][n_lb][n2][m2][n1][m1];   // текущий символ в строке
+        printf("%c", b);                                // выводим символ на экран
+
+        // изменяем координаты по горизонтали для доступа к следующему символу строки
+        if (m1 + 1 == SMALL_BLOCK_WIDTH) {      // Если в SmallBlock индекс по столбцам достиг правой границы,
+            m2++;                               // то переходим в новый маленький блок
+            m1 = 0;                             // на его начало по столбцам
+            if (m2 + 1 == LARGE_BLOCK_WIDTH) {  // Преодолели границу по ширине в большом блоке
+                m2 = 0;
+                n_lb++;
+            }
+        }
+        else {           // Если в SmallBlock индекс по столбцам не достиг правой границы,
+            m1++;        // то сдвигаемся в этом же маленьком блоке правее   
+        }
+    } while (b != '\0');
+    printf("\n");        // вывод признака конгца строки на экран
+}
 
 
+// вывод строк на экран
+void print_strings(LargeBlock** strings, size_t* mas_index, size_t count_str) {
+    for (int i = 0; i < count_str; i++) {
+        printf("mas_index[%zd] = %zd     ", i, mas_index[i]);
+        print_string(strings, mas_index[i]);
+    }
+}
+
+
+void SortStrings(LargeBlock** strings, void* compareStringsFunction) {
+
+
+
+}
+
+
+// Возвращаем файловый указатель (курсор) в начало файла
+int fseek_begin(FILE* in_file) {
+    if (fseek(in_file, 0, SEEK_SET) != 0) {   // SEEK_SET — константа, означающая смещение относительно начала файла на 0 байт
+        fprintf(stderr, "Error: An error occurred when moving the file pointer to the beginning of the file.");
+        return 1;
+    }
+    return 0;
+}
 
 
 int main(int argc, char* argv[]) {
 
+    printf("count_str_LargeBlock = %zd\n", count_str_LargeBlock);
+    printf("count_sym_LargeBlock = %zd\n", count_sym_LargeBlock);
 
     FILE* in_file = fopen(IN_FILE, "rb");
     if (in_file == NULL) {
@@ -36,8 +132,7 @@ int main(int argc, char* argv[]) {
     size_t i;                       // i - переменная цикла
     size_t strings_i = 0;           // strings_i - переменная цикла для массива strings
     size_t count_str = 0;           // count_str - количество строк в файле
-    size_t count_str_LargeBlock = SMALL_BLOCK_HEIGHT * LARGE_BLOCK_HEIGHT;    // count_str_LargeBlock - количество строк в блоке
-    size_t count_sym_LargeBlock = SMALL_BLOCK_WIDTH * LARGE_BLOCK_WIDTH;  // count_sym_LargeBlock - количество символов в блоке
+
 
 
     //**********************************************************************************************//
@@ -114,7 +209,6 @@ int main(int argc, char* argv[]) {
                     printf("            count_lb = %zd    \n", count_lb);
 
                     // Выделяем память под массив блоков
-                    printf("strings_i = %zd\n", strings_i);
                     strings[strings_i] = (LargeBlock*)malloc(count_lb * sizeof(LargeBlock));
                     if (strings[strings_i] == NULL) {
                         fprintf(stderr, "Error: Failed to allocate memory for array strings.");
@@ -156,10 +250,10 @@ int main(int argc, char* argv[]) {
                 fprintf(stderr, "Error: Failed to allocate memory for array strings.");
                 return 1;
             }
-            printf("strings_i = %zd\n", strings_i);
         }
     }
 
+    printf("\n\n");
     fseek_begin(in_file);       // Возвращаем файловый указатель (курсор) в начало файла
 
     //================================================================================================================================================= 
@@ -178,14 +272,9 @@ int main(int argc, char* argv[]) {
         for (i = 0; i < b_read; i++) {
             b = buf[i];                             // b - текущий (рассматриваемый) символ из считанного блока buf
 
-            printf("[%zd][%zd][%zd][%zd][%zd][%zd] b = %c\n", strings_i, n_lb, n2, m2, n1, m1, b);
+            //printf("[%zd][%zd][%zd][%zd][%zd][%zd] b = %c\n", strings_i, n_lb, n2, m2, n1, m1, b);
             if (b == 0x0D) {                        // Строка заканчивается
-                //__try {
                 strings[strings_i][n_lb][n2][m2][n1][m1] = '\0';     // в массив записали символ конца строки '\0'
-                //}
-                //__except (0) {
-                //    printf("[%zd][%zd][%zd][%zd][%zd][%zd] b = %c", strings_i,n_lb,n2,m2,n1,m1, b);
-                //}
             }
             else if (b == 0x0A) { // Строка закончилась, пересчитываем координаты для начала новой строки
                 m2 = 0;         // Начало новой строки
@@ -202,13 +291,7 @@ int main(int argc, char* argv[]) {
                 else n1++;
             }
             else {              // строка ещё не закончилась
-                //__try {
                 strings[strings_i][n_lb][n2][m2][n1][m1] = b;     // текущий символ записали в массив
-                //}
-                // __except (0) {
-                //   printf("[%zd][%zd][%zd][%zd][%zd][%zd] b = %c", strings_i, n_lb, n2, m2, n1, m1, b);
-                //}
-
 
                 // изменяем координаты по горизонтали для записи следующего символа
                 if (m1 + 1 == SMALL_BLOCK_WIDTH) {      // Если в SmallBlock индекс по столбцам достиг правой границы,
@@ -226,13 +309,24 @@ int main(int argc, char* argv[]) {
         }
     }
     // Если при окончании входного файла последний символ не 0x0A, т.е. есть последняя строка без завершающих символов конца строки
-    if ((b != 0x0A)) {
-        strings[strings_i][n_lb][n2][m2][n1][m1] = '\0';
-    }
+    if ((b != 0x0A)) strings[strings_i][n_lb][n2][m2][n1][m1] = '\0';
+
+    //**********************************************************************************************//
+    //                                                                                              // 
+    //                   Создание массива индекса строк для сортировок                              //
+    //                                                                                              // 
+    //**********************************************************************************************//
+
+    // Выделяем память под одномерный массив индексов mas_index
+    size_t* mas_index = (size_t*)malloc(count_str * sizeof(size_t));
+    // Инициализируем его значениями от 0 до count_str - 1
+    for (i = 0; i < count_str; i++)     mas_index[i] = i;
+
+    print_strings(strings, mas_index, count_str);
 
     // GenerateRandomStrings ();
 
-    // PrintStrings (strings);
+
     // SortStrings (strings, 0);
     // PrintStrings (strings);
 
