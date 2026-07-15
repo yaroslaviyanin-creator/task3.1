@@ -108,18 +108,35 @@ void print_string(LargeBlock** strings, size_t vindex) {
         i++;
     }
     printf("\n");                   // вывод признака конца строки на экран
+}
 
+// вывод строки в файл
+void print_string_file(FILE* out_file, LargeBlock** strings, size_t vindex) {
+    size_t i = 0;                   // переменная цикла
+    char b;
+
+    while ((b = get_sym_str(strings, vindex, i)) != '\0') {
+        fwrite(&b, 1, 1, out_file);       // запись символа в файл
+        i++;
+    }
+    b = 0x0D;   fwrite(&b, 1, 1, out_file);         // вывод признака конца строки в файл
+    b = 0x0A;   fwrite(&b, 1, 1, out_file);
 }
 
 
 // вывод строк на экран
 void print_strings(LargeBlock** strings, size_t* mas_index, size_t count_str) {
-    for (int i = 0; i < count_str; i++) {
-        //printf("mas_index[%zd] = %zd     ", i, mas_index[i]);
+    printf("=========================================\n");
+    for (int i = 0; i < count_str; i++)
         print_string(strings, mas_index[i]);
-    }
+    printf("=========================================\n");
 }
 
+// вывод строк в файл
+void print_strings_file(FILE* out_file, LargeBlock** strings, size_t* mas_index, size_t count_str) {
+    for (int i = 0; i < count_str; i++)
+        print_string_file(out_file, strings, mas_index[i]);
+}
 
 void SortStrings(LargeBlock** strings, void* compareStringsFunction) {
 
@@ -190,7 +207,7 @@ int main(int argc, char* argv[]) {
 
     size_t count_LargeBlock;                    // count_LargeBlock -  количество групп LargeBlock для хранения количества строк
     count_LargeBlock = count_str / count_str_LargeBlock;            // Считаем сколько целых блоков набирается из строк
-    if (count_str % count_str_LargeBlock > 0) count_LargeBlock++;   // Если есть хвостик из строк, то добавляем ещё один блок
+    if (DIV_MOD(count_str, count_str_LargeBlock) > 0) count_LargeBlock++;   // Если есть хвостик из строк, то добавляем ещё один блок
 
     // Выделяем память под одномерный массив указателей (под count_LargeBlock указателей)
     LargeBlock** strings = (LargeBlock**)malloc(count_LargeBlock * sizeof(LargeBlock*));
@@ -225,8 +242,8 @@ int main(int argc, char* argv[]) {
                 cur_len_str = 0;                    // Обнуляем счетчмк символов для следующей строки
 
                 if (cur_count_str == count_str_LargeBlock) {    // Набралось количество строк на блок
-                    count_lb = max_len_str / count_sym_LargeBlock;            // Считаем сколько целых блоков набирается из символов
-                    if (max_len_str % count_sym_LargeBlock > 0) count_lb++;   // Если есть хвостик из символов, то добавляем ещё один блок вправо
+                    count_lb = max_len_str / count_sym_LargeBlock;                    // Считаем сколько целых блоков набирается из символов
+                    if (DIV_MOD(max_len_str, count_sym_LargeBlock) > 0) count_lb++;   // Если есть хвостик из символов, то добавляем ещё один блок вправо
 
                     // Выделяем память под массив блоков
                     strings[strings_i] = (LargeBlock*)malloc(count_lb * sizeof(LargeBlock));
@@ -252,8 +269,8 @@ int main(int argc, char* argv[]) {
         if (cur_len_str > max_len_str) max_len_str = cur_len_str;    // Сверяем длину текущей строки с максимальной длиной строки в блоке
 
         if (cur_count_str <= count_str_LargeBlock) {    // Хвостик строк на блок
-            count_lb = max_len_str / count_sym_LargeBlock;            // Считаем сколько целых блоков набирается из символов
-            if (max_len_str % count_sym_LargeBlock > 0) count_lb++;   // Если есть хвостик из символов, то добавляем ещё один блок вправо
+            count_lb = max_len_str / count_sym_LargeBlock;                    // Считаем сколько целых блоков набирается из символов
+            if (DIV_MOD(max_len_str, count_sym_LargeBlock) > 0) count_lb++;   // Если есть хвостик из символов, то добавляем ещё один блок вправо
 
             // Выделяем память под массив блоков
 
@@ -283,7 +300,6 @@ int main(int argc, char* argv[]) {
         for (i = 0; i < b_read; i++) {
             b = buf[i];                             // b - текущий (рассматриваемый) символ из считанного блока buf
 
-            //printf("[%zd][%zd][%zd][%zd][%zd][%zd] b = %c\n", strings_i, n_lb, n2, m2, n1, m1, b);
             if (b == 0x0D) {                        // Строка заканчивается
                 put_sym_str(strings, vindex, sym_index, '\0');   // в массив записали символ конца строки '\0'
             }
@@ -312,6 +328,7 @@ int main(int argc, char* argv[]) {
     for (i = 0; i < count_str; i++)     mas_index[i] = i;
 
     print_strings(strings, mas_index, count_str);
+    print_strings_file(out_file, strings, mas_index, count_str);
 
     // GenerateRandomStrings ();
 
