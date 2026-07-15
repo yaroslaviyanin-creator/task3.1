@@ -98,6 +98,11 @@ int put_sym_str(LargeBlock** strings, size_t vindex, size_t sym_index, char b) {
     return 1;
 }
 
+
+//**********************************************************************************
+//                        Функции вывод строк
+//**********************************************************************************
+
 // вывод строки на экран
 void print_string(LargeBlock** strings, size_t vindex) {
     size_t i = 0;                   // переменная цикла
@@ -151,10 +156,23 @@ int fseek_begin(FILE* in_file) {
 //                             Функции сравнения
 //**********************************************************************************
 
-// Сравнение строк по алфавиту
-int cmp_str_alpha(LargeBlock** strings, size_t a, size_t b) {    // a, b - индексы сравниваемых строк
-
-    return 1;
+// Сравнение строк в лексикографическом порядке с учётом регистра. 
+// Возвращаемое значение: 0 - перестановка не нужна, 1 - перестановка строк нужна, -1 - непредвиденный результат.
+int cmp_str_alpha(LargeBlock** strings, size_t i1, size_t i2) {    // i1, i2 - индексы сравниваемых строк
+    size_t cmp_i = 0;       // номера сравниваемых индексов в строках
+    char a = '\0', b = '\0';              // сравниваемые символы двух строк: a для i1, b для i2.
+    //printf("sravnivaem  i1 = %zd    i2 = %zd\n", i1, i2);
+    while (((a = get_sym_str(strings, i1, cmp_i)) != '\0') && ((b = get_sym_str(strings, i2, cmp_i)) != '\0')) { // пока строки не закончились
+        //printf("a = %c   b = %c\n", a, b);
+        if (a > b) return 1;        // i1 строка > i2 строки, приведёт дальше к перестановке их местами
+        else if (a < b) return 0;   // i1 строка < i2 строки, перестановка не потребуется
+        cmp_i++;                    // переходим к следующему символу, если a = b
+    };
+    // закончилась одна из строк
+    if ((a == '\0') && (b == '\0')) return 0;   // строки равны, перестановка не нужна
+    if ((a == '\0') && (b != '\0')) return 0;   // i1 строка закончилась < i2 строка ещё не закончилась, перестановка не нужна
+    if ((a != '\0') && (b == '\0')) return 1;   // i1 строка не закончилась > i2 строка ещё не закончилась, перестановка не нужна
+    return -1;
 }
 
 
@@ -177,13 +195,14 @@ void sort_strings(LargeBlock** strings, size_t* mas_index, size_t count_str, int
         flag_swap = 0;
         for (j = 0; j < count_str - i - 1; j++) {
             if (cmp_str_func(strings, mas_index[j], mas_index[j + 1])) {     // j-ая строка > j+1 строки
+                //printf("menjaem mestami  mas_index[%zd] = %zd   mas_index[%zd] = %zd\n", j, mas_index[j], j+1, mas_index[j+1]);
                 tmp = mas_index[j];                                          // меняем местами индексы строк в массиве индексов mas_index
                 mas_index[j] = mas_index[j + 1];
                 mas_index[j + 1] = tmp;
                 flag_swap = 1;                  // произошла замена
             }
-            if (flag_swap == 0) break;  // если за полный проход по массиву не было замен, массив отсортирован, прекращаем сортировку
         }
+        if (flag_swap == 0) break;  // если за полный проход по массиву не было замен, массив отсортирован, прекращаем сортировку
     }
 }
 
@@ -370,7 +389,7 @@ int main(int argc, char* argv[]) {
 
     // SortStrings (strings, 0);
 
-    sort_strings(strings, mas_index, count_str, cmp_str_alpha);    // сортировка строк по алфавиту
+    sort_strings(strings, mas_index, count_str, cmp_str_alpha);    // сравнение строк в лексикографическом порядке с учётом регистра
 
     print_strings(strings, mas_index, count_str);                  // вывод строк на экран
     print_strings_file(out_file, strings, mas_index, count_str);   // вывод строк в файл 
