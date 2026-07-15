@@ -43,10 +43,11 @@ unsigned int size = rand() % max_size;
 }
 */
 
-// вывод строки на экран
-void print_string(LargeBlock** strings, size_t vindex) {
-    size_t n_lb = 0, n2 = 0, m2 = 0, n1 = 0, m1 = 0;                // текущие индексы для вложенных массивов
-    size_t strings_i, ostatok_str, ostatok_str_n2, ostatok_str_n1;  // переменные для расчета индексов строки
+// Получение символа по строке и его индексу в строке
+char get_sym_str(LargeBlock** strings, size_t vindex, size_t sym_index) {
+    size_t n_lb = 0, n2 = 0, m2 = 0, n1 = 0, m1 = 0;        // текущие индексы для вложенных массивов
+    size_t strings_i, ostatok_str;                          // переменные для расчета индексов строки
+    size_t ostatok_sym;                                     // переменная для расчета индексов символа
     char b;
 
     // индексы для строки
@@ -57,32 +58,64 @@ void print_string(LargeBlock** strings, size_t vindex) {
     n2 = ostatok_str / SMALL_BLOCK_HEIGHT;                  // сколько маленьких блоков входит по высоте в строках
     n1 = DIV_MOD(ostatok_str, SMALL_BLOCK_HEIGHT);          // остаток
 
-    printf("vindex = %zd, strings_i = %zd, ostatok_str = %zd, n2 = %zd, n1 = %zd     ", vindex, strings_i, ostatok_str, n2, n1);
-    do {
-        b = strings[strings_i][n_lb][n2][m2][n1][m1];   // текущий символ в строке
-        printf("%c", b);                                // выводим символ на экран
+    // индексы для символа
 
-        // изменяем координаты по горизонтали для доступа к следующему символу строки
-        if (m1 + 1 == SMALL_BLOCK_WIDTH) {      // Если в SmallBlock индекс по столбцам достиг правой границы,
-            m2++;                               // то переходим в новый маленький блок
-            m1 = 0;                             // на его начало по столбцам
-            if (m2 + 1 == LARGE_BLOCK_WIDTH) {  // Преодолели границу по ширине в большом блоке
-                m2 = 0;
-                n_lb++;
-            }
-        }
-        else {           // Если в SmallBlock индекс по столбцам не достиг правой границы,
-            m1++;        // то сдвигаемся в этом же маленьком блоке правее   
-        }
-    } while (b != '\0');
-    printf("\n");        // вывод признака конгца строки на экран
+    n_lb = sym_index / count_sym_LargeBlock;                 // сколько больших блоков входит по ширине до символа
+    ostatok_sym = DIV_MOD(sym_index, count_sym_LargeBlock);  // остаток
+
+    m2 = ostatok_sym / SMALL_BLOCK_WIDTH;                    // сколько маленьких блоков входит по ширине до символа
+    m1 = DIV_MOD(ostatok_sym, SMALL_BLOCK_WIDTH);            // остаток
+
+    b = strings[strings_i][n_lb][n2][m2][n1][m1];   // текущий символ в строке
+
+    return b;
+}
+
+// Запись символа по строке и его индексу в строке
+int put_sym_str(LargeBlock** strings, size_t vindex, size_t sym_index, char b) {
+    size_t n_lb = 0, n2 = 0, m2 = 0, n1 = 0, m1 = 0;        // текущие индексы для вложенных массивов
+    size_t strings_i, ostatok_str;                          // переменные для расчета индексов строки
+    size_t ostatok_sym;                                     // переменная для расчета индексов символа
+
+    // индексы для строки
+
+    strings_i = vindex / count_str_LargeBlock;              // сколько больших блоков входит по высоте в строках
+    ostatok_str = DIV_MOD(vindex, count_str_LargeBlock);    // остаток
+
+    n2 = ostatok_str / SMALL_BLOCK_HEIGHT;                  // сколько маленьких блоков входит по высоте в строках
+    n1 = DIV_MOD(ostatok_str, SMALL_BLOCK_HEIGHT);          // остаток
+
+    // индексы для символа
+
+    n_lb = sym_index / count_sym_LargeBlock;                 // сколько больших блоков входит по ширине до символа
+    ostatok_sym = DIV_MOD(sym_index, count_sym_LargeBlock);  // остаток
+
+    m2 = ostatok_sym / SMALL_BLOCK_WIDTH;                    // сколько маленьких блоков входит по ширине до символа
+    m1 = DIV_MOD(ostatok_sym, SMALL_BLOCK_WIDTH);            // остаток
+
+    strings[strings_i][n_lb][n2][m2][n1][m1] = b;            // сохранение текущего символа в строке
+
+    return 1;
+}
+
+// вывод строки на экран
+void print_string(LargeBlock** strings, size_t vindex) {
+    size_t i = 0;                   // переменная цикла
+    char b;
+
+    while ((b = get_sym_str(strings, vindex, i)) != '\0') {
+        printf("%c", b);            // выводим символ на экран
+        i++;
+    }
+    printf("\n");                   // вывод признака конца строки на экран
+
 }
 
 
 // вывод строк на экран
 void print_strings(LargeBlock** strings, size_t* mas_index, size_t count_str) {
     for (int i = 0; i < count_str; i++) {
-        printf("mas_index[%zd] = %zd     ", i, mas_index[i]);
+        //printf("mas_index[%zd] = %zd     ", i, mas_index[i]);
         print_string(strings, mas_index[i]);
     }
 }
@@ -107,9 +140,6 @@ int fseek_begin(FILE* in_file) {
 
 int main(int argc, char* argv[]) {
 
-    printf("count_str_LargeBlock = %zd\n", count_str_LargeBlock);
-    printf("count_sym_LargeBlock = %zd\n", count_sym_LargeBlock);
-
     FILE* in_file = fopen(IN_FILE, "rb");
     if (in_file == NULL) {
         fprintf(stderr, "Error: Cannot open input file %s\n", IN_FILE);
@@ -128,7 +158,7 @@ int main(int argc, char* argv[]) {
 
     char buf[N];                    // buf - считываемый блок (массив) символов из файла 
     size_t b_read;                  // b_read - количество считанных символов в блоке
-    char b;                         // b - текущий символ
+    char b = 0x0A;                  // b - текущий символ
     size_t i;                       // i - переменная цикла
     size_t strings_i = 0;           // strings_i - переменная цикла для массива strings
     size_t count_str = 0;           // count_str - количество строк в файле
@@ -158,13 +188,9 @@ int main(int argc, char* argv[]) {
     // Если при окончании входного файла последний символ не 0x0A, т.е. есть последняя строка без завершающих символов конца строки, то
     if ((b != 0x0A)) count_str++;              // добавляем в счетчик строк +1
 
-    printf("\n\ncount_str = %zd", count_str);
-
     size_t count_LargeBlock;                    // count_LargeBlock -  количество групп LargeBlock для хранения количества строк
     count_LargeBlock = count_str / count_str_LargeBlock;            // Считаем сколько целых блоков набирается из строк
     if (count_str % count_str_LargeBlock > 0) count_LargeBlock++;   // Если есть хвостик из строк, то добавляем ещё один блок
-
-    printf("\ncount_LargeBlock = %zd\n\n", count_LargeBlock);
 
     // Выделяем память под одномерный массив указателей (под count_LargeBlock указателей)
     LargeBlock** strings = (LargeBlock**)malloc(count_LargeBlock * sizeof(LargeBlock*));
@@ -189,24 +215,18 @@ int main(int argc, char* argv[]) {
     while ((b_read = fread(buf, 1, N, in_file)) > 0) {
         for (i = 0; i < b_read; i++) {
             b = buf[i];                             // b - текущий (рассматриваемый) символ из считанного блока buf
-            printf("%c", b);
+
             if (b == 0x0A) {                        // 0x0A - символ перевода строки. Строка закончилась.
                 cur_count_str++;                    // увеличиваем счетчик текущих строк в блоке
-                printf("cur_count_str = %zd    ", cur_count_str);
-                printf("cur_len_str = %zd    ", cur_len_str);
                 if (cur_len_str > max_len_str) {    // Сверяем длину текущей строки с максимальной длиной строки в блоке
                     max_len_str = cur_len_str;
-                    printf("max_len_str = %zd    ", max_len_str);
                 }
 
                 cur_len_str = 0;                    // Обнуляем счетчмк символов для следующей строки
 
                 if (cur_count_str == count_str_LargeBlock) {    // Набралось количество строк на блок
-                    printf("\nNabnralos strok na block!");
-
                     count_lb = max_len_str / count_sym_LargeBlock;            // Считаем сколько целых блоков набирается из символов
                     if (max_len_str % count_sym_LargeBlock > 0) count_lb++;   // Если есть хвостик из символов, то добавляем ещё один блок вправо
-                    printf("            count_lb = %zd    \n", count_lb);
 
                     // Выделяем память под массив блоков
                     strings[strings_i] = (LargeBlock*)malloc(count_lb * sizeof(LargeBlock));
@@ -219,7 +239,6 @@ int main(int argc, char* argv[]) {
                     cur_count_str = 0;                          // обнуляем текущее количество строк для следующего блока
                     max_len_str = 0;                            // обнуляем максимальную длину строки для следующего блока
                 }
-
             }
             else {              // строка ещё не закончилась
                 cur_len_str++;  // +1 в количество символов в строке
@@ -229,23 +248,17 @@ int main(int argc, char* argv[]) {
     // Если при окончании входного файла последний символ не 0x0A, т.е. есть последняя строка без завершающих символов конца строки, то
     if ((b != 0x0A)) {             // добавляем в счетчик символов последней текущей строки +1
         cur_count_str++;
-        printf("\ncur_count_str = %zd    ", cur_count_str);
         cur_len_str++;
-        printf("cur_len_str = %zd    ", cur_len_str);
-        if (cur_len_str > max_len_str) {    // Сверяем длину текущей строки с максимальной длиной строки в блоке
-            max_len_str = cur_len_str;
-            printf("max_len_str = %zd    ", max_len_str);
-        }
-        if (cur_count_str <= count_str_LargeBlock) {    // Хвостик строк на блок
-            printf("\nNabnralos strok na block!");
+        if (cur_len_str > max_len_str) max_len_str = cur_len_str;    // Сверяем длину текущей строки с максимальной длиной строки в блоке
 
+        if (cur_count_str <= count_str_LargeBlock) {    // Хвостик строк на блок
             count_lb = max_len_str / count_sym_LargeBlock;            // Считаем сколько целых блоков набирается из символов
             if (max_len_str % count_sym_LargeBlock > 0) count_lb++;   // Если есть хвостик из символов, то добавляем ещё один блок вправо
-            printf("            count_lb = %zd    \n", count_lb);
 
             // Выделяем память под массив блоков
 
             strings[strings_i] = (LargeBlock*)malloc(count_lb * sizeof(LargeBlock));
+
             if (strings[strings_i] == NULL) {
                 fprintf(stderr, "Error: Failed to allocate memory for array strings.");
                 return 1;
@@ -253,7 +266,6 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    printf("\n\n");
     fseek_begin(in_file);       // Возвращаем файловый указатель (курсор) в начало файла
 
     //================================================================================================================================================= 
@@ -265,51 +277,28 @@ int main(int argc, char* argv[]) {
     //          count_LargeBlock - 1                LARGE_BLOCK_HEIGHT - 1    LARGE_BLOCK_WIDTH - 1    SMALL_BLOCK_HEIGHT - 1    SMALL_BLOCK_WIDTH - 1
     //=================================================================================================================================================
 
-    size_t n_lb = 0, n2 = 0, m2 = 0, n1 = 0, m1 = 0;          // текущие индексы для вложенных массивов
-    strings_i = 0;
+    size_t vindex = 0, sym_index = 0;                          // текущий номер строки и символа
 
-    while ((b_read = fread(buf, 1, N, in_file)) > 0) {
+    while ((b_read = fread(buf, 1, N, in_file)) > 0)
         for (i = 0; i < b_read; i++) {
             b = buf[i];                             // b - текущий (рассматриваемый) символ из считанного блока buf
 
             //printf("[%zd][%zd][%zd][%zd][%zd][%zd] b = %c\n", strings_i, n_lb, n2, m2, n1, m1, b);
             if (b == 0x0D) {                        // Строка заканчивается
-                strings[strings_i][n_lb][n2][m2][n1][m1] = '\0';     // в массив записали символ конца строки '\0'
+                put_sym_str(strings, vindex, sym_index, '\0');   // в массив записали символ конца строки '\0'
             }
-            else if (b == 0x0A) { // Строка закончилась, пересчитываем координаты для начала новой строки
-                m2 = 0;         // Начало новой строки
-                m1 = 0;
-                n_lb = 0;
-                if (n1 + 1 == SMALL_BLOCK_HEIGHT) {         // Преодолели границу по высоте в маленьком блоке
-                    n1 = 0;
-                    if (n2 + 1 == LARGE_BLOCK_HEIGHT) {     // Преодолели границу по высоте в большом блоке
-                        n2 = 0;
-                        strings_i++;
-                    }
-                    else n2++;
-                }
-                else n1++;
+            else if (b == 0x0A) {   // Строка закончилась:
+                vindex++;           // меняем индекс строки на следующий,
+                sym_index = 0;      // а индекс символа обнуляем    
             }
-            else {              // строка ещё не закончилась
-                strings[strings_i][n_lb][n2][m2][n1][m1] = b;     // текущий символ записали в массив
-
-                // изменяем координаты по горизонтали для записи следующего символа
-                if (m1 + 1 == SMALL_BLOCK_WIDTH) {      // Если в SmallBlock индекс по столбцам достиг правой границы,
-                    m2++;                               // то переходим в новый маленький блок
-                    m1 = 0;  // на его начало по столбцам
-                    if (m2 + 1 == LARGE_BLOCK_WIDTH) {  // Преодолели границу по ширине в большом блоке
-                        m2 = 0;
-                        n_lb++;
-                    }
-                }
-                else {           // Если в SmallBlock индекс по столбцам не достиг правой границы,
-                    m1++;        // то сдвигаемся в этом же маленьком блоке правее   
-                }
+            else {                  // строка ещё не закончилась
+                put_sym_str(strings, vindex, sym_index, b);    // текущий символ записали в массив
+                sym_index++;                                   // изменяем номер индекса для записи следующего символа
             }
         }
-    }
+
     // Если при окончании входного файла последний символ не 0x0A, т.е. есть последняя строка без завершающих символов конца строки
-    if ((b != 0x0A)) strings[strings_i][n_lb][n2][m2][n1][m1] = '\0';
+    if ((b != 0x0A)) put_sym_str(strings, vindex, sym_index, '\0');  // записываем в массив признак конца строки
 
     //**********************************************************************************************//
     //                                                                                              // 
