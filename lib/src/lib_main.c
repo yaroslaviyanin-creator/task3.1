@@ -4,6 +4,8 @@ lib_main.c - главный модуль библиотеки.
 Группа МК-101
 */
 
+#include <stdlib.h>
+#include <stdio.h>
 #include "lib_main.h"
 #include "config.h"
 
@@ -37,4 +39,12 @@ void SortStrings(LargeBlock** strings, void* compareStringsFunction) {
 int LibAddFunction (int a, int b) {
 	
 	return a + b;
+}
+
+// Возвращаем файловый указатель (курсор) в начало файла
+int fseek_begin(FILE* in_file) {
+	if (fseek(in_file, 0, SEEK_SET) != 0) {   // SEEK_SET — константа, означающая смещение относительно начала файла на 0 байт
+		fprintf(stderr, "Error: An error occurred when moving the file pointer to the beginning of the file.");
+		return 1;
+	}
 }

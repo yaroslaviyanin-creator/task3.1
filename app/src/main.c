@@ -33,9 +33,11 @@ int main(int argc, char* argv[]) {
     char buf[N];                    // buf - считываемый блок (массив) символов из файла 
     size_t b_read;                  // b_read - количество считанных символов в блоке
     char b;                         // b - текущий символ
-    size_t i, j;                    // i, j - переменные цикла
+    size_t i;                       // i - переменная цикла
+    size_t strings_i = 0;           // strings_i - переменная цикла для массива strings
     size_t count_str = 0;           // count_str - количество строк в файле
-
+    size_t count_str_LargeBlock = SMALL_BLOCK_WIDTH * LARGE_BLOCK_WIDTH;    // count_str_LargeBlock - количество строк в блоке
+    size_t count_sym_LargeBlock = SMALL_BLOCK_HEIGHT * LARGE_BLOCK_HEIGHT;  // count_sym_LargeBlock - количество символов в блоке
 
 
     //**********************************************************************************************//
@@ -44,12 +46,12 @@ int main(int argc, char* argv[]) {
     //                                                                                              // 
     //**********************************************************************************************//
 
+    //=================================================================
     // Считаем количество строк во входном файле - первый проход файла
-    //================================================================
+    //=================================================================
     while ((b_read = fread(buf, 1, N, in_file)) > 0) {
         for (i = 0; i < b_read; i++) {
             b = buf[i];                        // b - текущий (рассматриваемый) символ из считанного блока 
-            printf("%c", b);
             if (b == 0x0A) count_str++;        // 0x0D - символ возврата каретки
             // 0x0A - символ перевода строки
             // Признак конца строки:
@@ -60,12 +62,13 @@ int main(int argc, char* argv[]) {
     // Если при окончании входного файла последний символ не 0x0A, т.е. есть последняя строка без завершающих символов конца строки, то
     if ((b != 0x0A)) count_str++;              // добавляем в счетчик строк +1
 
-    printf("\ncount_str = %zd\n", count_str);
+    printf("\n\ncount_str = %zd", count_str);
 
-    size_t count_LargeBlock;    // count_LargeBlock -  количество групп LargeBlock для хранения количества строк
-    count_LargeBlock = count_str / (SMALL_BLOCK_WIDTH * LARGE_BLOCK_WIDTH);
-    if (count_str % (SMALL_BLOCK_WIDTH * LARGE_BLOCK_WIDTH) > 0) count_LargeBlock++; // Если есть хвостик из строк, то добавляем ещё один блок
-    printf("\ncount_LargeBlock = %zd\n", count_LargeBlock);
+    size_t count_LargeBlock;                    // count_LargeBlock -  количество групп LargeBlock для хранения количества строк
+    count_LargeBlock = count_str / count_str_LargeBlock;            // Считаем сколько целых блоков набирается из строк
+    if (count_str % count_str_LargeBlock > 0) count_LargeBlock++;   // Если есть хвостик из строк, то добавляем ещё один блок
+
+    printf("\ncount_LargeBlock = %zd\n\n", count_LargeBlock);
 
     // Выделяем память под одномерный массив указателей (под count_LargeBlock указателей)
     LargeBlock** strings = (LargeBlock**)malloc(count_LargeBlock * sizeof(LargeBlock*));
@@ -75,6 +78,82 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    fseek_begin(in_file);       // Возвращаем файловый указатель (курсор) в начало файла
+
+    //============================================================
+    // Считаем длины строк во входном файле - второй проход файла
+    //============================================================
+    size_t cur_len_str = 0;                        // cur_len_str - текущая длина строки
+    size_t max_len_str = 0;                        // max_len_str - максимальная длина строки в блоке LargeBlock
+    size_t cur_count_str = 0;                      // cur_count_str - текущее количество строк в блоке LargeBlock
+    size_t count_lb = 0;                           // count_lb - количество элементов в блкое
+
+    while ((b_read = fread(buf, 1, N, in_file)) > 0) {
+        for (i = 0; i < b_read; i++) {
+            b = buf[i];                             // b - текущий (рассматриваемый) символ из считанного блока buf
+            printf("%c", b);
+            if (b == 0x0A) {                        // 0x0A - символ перевода строки. Строка закончилась.
+                cur_count_str++;                    // увеличиваем счетчик текущих строк в блоке
+                printf("cur_count_str = %zd    ", cur_count_str);
+                printf("cur_len_str = %zd    ", cur_len_str);
+                if (cur_len_str > max_len_str) {    // Сверяем длину текущей строки с максимальной длиной строки в блоке
+                    max_len_str = cur_len_str;
+                    printf("max_len_str = %zd    ", max_len_str);
+                }
+
+                cur_len_str = 0;                    // Обнуляем счетчмк символов для следующей строки
+
+                if (cur_count_str == count_str_LargeBlock) {    // Набралось количество строк на блок
+                    printf("\nNabnralos strok na block!");
+
+                    count_lb = max_len_str / count_sym_LargeBlock;            // Считаем сколько целых блоков набирается из символов
+                    if (max_len_str % count_sym_LargeBlock > 0) count_lb++;   // Если есть хвостик из символов, то добавляем ещё один блок вправо
+                    printf("            count_lb = %zd    \n", count_lb);
+
+                    // Выделяем память под массив блоков
+                    strings[strings_i] = (LargeBlock*)malloc(count_lb * sizeof(LargeBlock));
+                    strings_i++;    // изменяем переменную цикла для массива strings на единицу
+
+                    cur_count_str = 0;                          // обнуляем текущее количество строк для следующего блока
+                    max_len_str = 0;                            // обнуляем максимальную длину строки для следующего блока
+                }
+
+            }
+            else {              // строка ещё не закончилась
+                cur_len_str++;  // +1 в количество символов в строке
+            }
+
+
+
+        }
+    }
+    // Если при окончании входного файла последний символ не 0x0A, т.е. есть последняя строка без завершающих символов конца строки, то
+    if ((b != 0x0A)) {             // добавляем в счетчик символов последней текущей строки +1
+        cur_count_str++;
+        printf("\ncur_count_str = %zd    ", cur_count_str);
+        cur_len_str++;
+        printf("cur_len_str = %zd    ", cur_len_str);
+        if (cur_len_str > max_len_str) {    // Сверяем длину текущей строки с максимальной длиной строки в блоке
+            max_len_str = cur_len_str;
+            printf("max_len_str = %zd    ", max_len_str);
+        }
+        if (cur_count_str <= count_str_LargeBlock) {    // Хвостик строк на блок
+            printf("\nNabnralos strok na block!");
+
+            count_lb = max_len_str / count_sym_LargeBlock;            // Считаем сколько целых блоков набирается из символов
+            if (max_len_str % count_sym_LargeBlock > 0) count_lb++;   // Если есть хвостик из символов, то добавляем ещё один блок вправо
+            printf("            count_lb = %zd    \n", count_lb);
+
+            // Выделяем память под массив блоков
+            strings[strings_i] = (LargeBlock*)malloc(count_lb * sizeof(LargeBlock));
+            strings_i++;    // изменяем переменную цикла для массива strings на единицу
+        }
+    }
+
+    fseek_begin(in_file);       // Возвращаем файловый указатель (курсор) в начало файла
+
+
+
 
 
     // GenerateRandomStrings ();
@@ -83,6 +162,10 @@ int main(int argc, char* argv[]) {
     // SortStrings (strings, 0);
     // PrintStrings (strings);
 
+     // очищаем память из под элементов массива strings
+    for (strings_i = 0; strings_i < count_LargeBlock; strings_i++) free(strings[strings_i]);
+
+    free(strings);          // очищаем память из под массива указателей strings
     fclose(in_file);
     fclose(out_file);
     return 0;
