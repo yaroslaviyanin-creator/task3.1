@@ -138,13 +138,6 @@ void print_strings_file(FILE* out_file, LargeBlock** strings, size_t* mas_index,
         print_string_file(out_file, strings, mas_index[i]);
 }
 
-void SortStrings(LargeBlock** strings, void* compareStringsFunction) {
-
-
-
-}
-
-
 // Возвращаем файловый указатель (курсор) в начало файла
 int fseek_begin(FILE* in_file) {
     if (fseek(in_file, 0, SEEK_SET) != 0) {   // SEEK_SET — константа, означающая смещение относительно начала файла на 0 байт
@@ -153,6 +146,49 @@ int fseek_begin(FILE* in_file) {
     }
     return 0;
 }
+
+//**********************************************************************************
+//                             Функции сравнения
+//**********************************************************************************
+
+// Сравнение строк по алфавиту
+int cmp_str_alpha(LargeBlock** strings, size_t a, size_t b) {    // a, b - индексы сравниваемых строк
+
+    return 1;
+}
+
+
+
+
+
+
+
+
+//**********************************************************************************
+//                             Функция сортировки
+//**********************************************************************************
+
+void sort_strings(LargeBlock** strings, size_t* mas_index, size_t count_str, int (*cmp_str_func)(LargeBlock**, size_t, size_t)) {
+    size_t i, j;        // i, j - переменные цикла
+    size_t tmp;         // tmp - переменная для обмена
+    int flag_swap;      // flag_swap - флаг замены: 0 - не было замены, 1 - была замена.
+
+    for (i = 0; i < count_str - 1; i++) {       // сортировка пузырьком
+        flag_swap = 0;
+        for (j = 0; j < count_str - i - 1; j++) {
+            if (cmp_str_func(strings, mas_index[j], mas_index[j + 1])) {     // j-ая строка > j+1 строки
+                tmp = mas_index[j];                                          // меняем местами индексы строк в массиве индексов mas_index
+                mas_index[j] = mas_index[j + 1];
+                mas_index[j + 1] = tmp;
+                flag_swap = 1;                  // произошла замена
+            }
+            if (flag_swap == 0) break;  // если за полный проход по массиву не было замен, массив отсортирован, прекращаем сортировку
+        }
+    }
+}
+
+
+
 
 
 int main(int argc, char* argv[]) {
@@ -327,18 +363,20 @@ int main(int argc, char* argv[]) {
     // Инициализируем его значениями от 0 до count_str - 1
     for (i = 0; i < count_str; i++)     mas_index[i] = i;
 
-    print_strings(strings, mas_index, count_str);
-    print_strings_file(out_file, strings, mas_index, count_str);
+
 
     // GenerateRandomStrings ();
 
 
     // SortStrings (strings, 0);
-    // PrintStrings (strings);
 
-     // очищаем память из под элементов массива strings
-     //for (strings_i = 0; strings_i < count_LargeBlock; strings_i++) free(strings[strings_i]);        
+    sort_strings(strings, mas_index, count_str, cmp_str_alpha);    // сортировка строк по алфавиту
 
+    print_strings(strings, mas_index, count_str);                  // вывод строк на экран
+    print_strings_file(out_file, strings, mas_index, count_str);   // вывод строк в файл 
+
+
+    for (strings_i = 0; strings_i < count_LargeBlock; strings_i++) free(strings[strings_i]);   // Очищаем память из под элементов массива strings   
     free(strings);          // очищаем память из под массива указателей strings
     fclose(in_file);
     fclose(out_file);
