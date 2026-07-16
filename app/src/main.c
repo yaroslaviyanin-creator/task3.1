@@ -152,6 +152,13 @@ int fseek_begin(FILE* in_file) {
     return 0;
 }
 
+// Получение индекса конца строки
+int index_end_str(LargeBlock** strings, size_t i1) {
+    int i = 0;
+    while (get_sym_str(strings, i1, i) != '\0') i++;
+    return i;
+}
+
 //**********************************************************************************
 //                             Функции сравнения
 //**********************************************************************************
@@ -208,7 +215,7 @@ int cmp_str_alpha_tolower(LargeBlock** strings, size_t i1, size_t i2) {    // i1
 int cmp_str_length(LargeBlock** strings, size_t i1, size_t i2) {    // i1, i2 - индексы сравниваемых строк
 
     size_t cmp_i = 0;               // номера сравниваемых индексов в строках
-    char a = '\0', b = '\0';        // сравниваемые символы двух строк: a для i1, b для i2
+    char a, b;                      // сравниваемые символы двух строк: a для i1, b для i2
     int flag_swap = 3;              // flag_swap - флаг замены при одинаковых длинах строк: 3 - символы равны
 
     while (1) {
@@ -235,8 +242,32 @@ int cmp_str_length(LargeBlock** strings, size_t i1, size_t i2) {    // i1, i2 - 
 }
 
 
+// Лексиграфическая сортировка строк с конца
+int cmp_str_end(LargeBlock** strings, size_t i1, size_t i2) {    // i1, i2 - индексы сравниваемых строк
 
+    size_t cmp_i1 = index_end_str(strings, i1) - 1;       // номера сравниваемых индексов в строках с конца 
+    size_t cmp_i2 = index_end_str(strings, i2) - 1;
 
+    char a, b;                      // сравниваемые символы двух строк: a для i1, b для i2
+
+    while (1) {
+        if ((cmp_i1 == -1) && (cmp_i2 == -1)) return 0;    // Закончились обе строки одновременно, значит они равны, перестановка не нужна.
+        else {
+            if (cmp_i1 == -1) return 0;      // Закончилась только первая строка, i1 меньше i2, перестановка не нужна.
+            if (cmp_i2 == -1) return 1;      // Закончилась только вторая строка, i1 больше i2, перестановка нужна.
+        }
+        // Строки не закончились
+        a = get_sym_str(strings, i1, cmp_i1);
+        b = get_sym_str(strings, i2, cmp_i2);
+
+        // Сравниваем коды символов
+        if (a > b) return 1;    // i1 больше i2, нужна перестановка
+        if (a < b) return 0;    // i1 меньше i2, перестановка не нужна
+
+        cmp_i1--;    // символы a и b равны, идем дальше
+        cmp_i2--;
+    }
+}
 
 
 //**********************************************************************************
@@ -447,7 +478,8 @@ int main(int argc, char* argv[]) {
 
      //sort_strings(strings, mas_index, count_str, cmp_str_alpha);           // сравнение строк в лексикографическом порядке с учётом регистра
      //sort_strings(strings, mas_index, count_str, cmp_str_alpha_tolower);   // сравнение строк в лексикографическом порядке без учёта регистра
-    sort_strings(strings, mas_index, count_str, cmp_str_length);            // cравнение по длине строки, а при равенстве — лексикографическое c учетом регистра
+     //sort_strings(strings, mas_index, count_str, cmp_str_length);          // cравнение по длине строки, а при равенстве — лексикографическое c учетом регистра
+    sort_strings(strings, mas_index, count_str, cmp_str_end);             // сравнение строк с конца в лексикографическом порядке с учётом регистра
 
 
     print_strings(strings, mas_index, count_str);                  // вывод строк на экран
