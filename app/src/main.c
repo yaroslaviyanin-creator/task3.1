@@ -98,6 +98,11 @@ int put_sym_str(LargeBlock** strings, size_t vindex, size_t sym_index, char b) {
     return 1;
 }
 
+
+//**********************************************************************************
+//                        Функции вывод строк
+//**********************************************************************************
+
 // вывод строки на экран
 void print_string(LargeBlock** strings, size_t vindex) {
     size_t i = 0;                   // переменная цикла
@@ -138,13 +143,6 @@ void print_strings_file(FILE* out_file, LargeBlock** strings, size_t* mas_index,
         print_string_file(out_file, strings, mas_index[i]);
 }
 
-void SortStrings(LargeBlock** strings, void* compareStringsFunction) {
-
-
-
-}
-
-
 // Возвращаем файловый указатель (курсор) в начало файла
 int fseek_begin(FILE* in_file) {
     if (fseek(in_file, 0, SEEK_SET) != 0) {   // SEEK_SET — константа, означающая смещение относительно начала файла на 0 байт
@@ -154,6 +152,190 @@ int fseek_begin(FILE* in_file) {
     return 0;
 }
 
+// Получение индекса конца строки
+int index_end_str(LargeBlock** strings, size_t i1) {
+    int i = 0;
+    while (get_sym_str(strings, i1, i) != '\0') i++;
+    return i;
+}
+
+// Функция обмена двух элементов массива mas_index по индексам i1 и i2
+void swap_mas_index(size_t* mas_index, size_t count_str, size_t i1, size_t i2) {
+    size_t tmp;                 // tmp - переменная для обмена
+    tmp = mas_index[i1];
+    mas_index[i1] = mas_index[i2];
+    mas_index[i2] = tmp;
+}
+
+
+//**********************************************************************************
+//                             Функции сравнения
+//**********************************************************************************
+
+// Возвращаемое значение: 0 - перестановка не нужна, 1 - перестановка строк нужна.
+
+// Сравнение строк в лексикографическом порядке с учётом регистра.
+int cmp_str_alpha(LargeBlock** strings, size_t i1, size_t i2) {
+
+    size_t cmp_i = 0;       // номера сравниваемых индексов в строках
+    char a, b;              // сравниваемые символы двух строк: a для i1, b для i2
+
+    while (1) {
+        a = get_sym_str(strings, i1, cmp_i);
+        b = get_sym_str(strings, i2, cmp_i);
+
+        // Сравниваем коды символов (включая '\0')
+        if (a > b) return 1;    // i1 больше i2, нужна перестановка
+        if (a < b) return 0;    // i1 меньше i2, перестановка не нужна
+
+        // Символы a и b равны
+        // Если при этом a == '\0', значит обе строки закончились одновременно.
+        if (a == '\0') return 0;    // строки полностью идентичны
+
+        cmp_i++;    // символы равны, идем дальше
+    }
+}
+
+
+// Сравнение строк в лексикографическом порядке без учёта регистра. 
+int cmp_str_alpha_tolower(LargeBlock** strings, size_t i1, size_t i2) {    // i1, i2 - индексы сравниваемых строк
+
+    size_t cmp_i = 0;       // номера сравниваемых индексов в строках
+    char a, b;              // сравниваемые символы двух строк: a для i1, b для i2
+
+    while (1) {
+        a = tolower(get_sym_str(strings, i1, cmp_i));
+        b = tolower(get_sym_str(strings, i2, cmp_i));
+
+        // Сравниваем коды символов (включая '\0')
+        if (a > b) return 1;    // i1 больше i2, нужна перестановка
+        if (a < b) return 0;    // i1 меньше i2, перестановка не нужна
+
+        // Символы a и b равны
+        // Если при этом a == '\0', значит обе строки закончились одновременно.
+        if (a == '\0') return 0;    // строки полностью идентичны
+
+        cmp_i++;    // символы равны, идем дальше
+    }
+}
+
+
+// Сравнение по длине строки, а при равенстве — лексикографическое c учетом регистра.
+int cmp_str_length(LargeBlock** strings, size_t i1, size_t i2) {    // i1, i2 - индексы сравниваемых строк
+
+    size_t cmp_i = 0;               // номера сравниваемых индексов в строках
+    char a, b;                      // сравниваемые символы двух строк: a для i1, b для i2
+    int flag_swap = 3;              // flag_swap - флаг замены при одинаковых длинах строк: 3 - символы равны
+
+    while (1) {
+        a = get_sym_str(strings, i1, cmp_i);
+        b = get_sym_str(strings, i2, cmp_i);
+
+        // Если хотя бы одна строка закончилась, прерываем цикл
+        if (a == '\0' || b == '\0') break;
+
+        // Лексикографическое сравнение первых несовпадающих символов
+        if (flag_swap == 3)
+            if (a > b)        flag_swap = 1;      // i1 строка > i2 строки, приведёт дальше к перестановке их местами
+            else if (a < b)   flag_swap = 0;      // i1 строка < i2 строки, перестановка не потребуется
+        cmp_i++;                         // переходим к следующему символу
+    };
+
+    // закончилась одна из строк, проверяем их длины
+    if ((a == '\0') && (b != '\0')) return 0;   // i1 короче i2, перестановка не нужна
+    if ((a != '\0') && (b == '\0')) return 1;   // i1 длиннее i2, перестановка нужна
+
+    // cтроки равной длины
+    if (flag_swap == 1) return 1;   // но i1 строка > i2 строки, перестановка нужна
+    return 0;                       // но i1 строка <= i2 строки, перестановка не нужна
+}
+
+
+// Лексикографическая сортировка строк с конца
+int cmp_str_end(LargeBlock** strings, size_t i1, size_t i2) {    // i1, i2 - индексы сравниваемых строк
+
+    size_t cmp_i1 = index_end_str(strings, i1) - 1;       // номера сравниваемых индексов в строках с конца 
+    size_t cmp_i2 = index_end_str(strings, i2) - 1;
+
+    char a, b;                      // сравниваемые символы двух строк: a для i1, b для i2
+
+    while (1) {
+        if ((cmp_i1 == -1) && (cmp_i2 == -1)) return 0;    // Закончились обе строки одновременно, значит они равны, перестановка не нужна.
+        else {
+            if (cmp_i1 == -1) return 0;      // Закончилась только первая строка, i1 меньше i2, перестановка не нужна.
+            if (cmp_i2 == -1) return 1;      // Закончилась только вторая строка, i1 больше i2, перестановка нужна.
+        }
+        // Строки не закончились
+        a = get_sym_str(strings, i1, cmp_i1);
+        b = get_sym_str(strings, i2, cmp_i2);
+
+        // Сравниваем коды символов
+        if (a > b) return 1;    // i1 больше i2, нужна перестановка
+        if (a < b) return 0;    // i1 меньше i2, перестановка не нужна
+
+        cmp_i1--;    // символы a и b равны, идем дальше
+        cmp_i2--;
+    }
+}
+
+
+//**********************************************************************************
+//                             Функция сортировки
+//**********************************************************************************
+
+// Сортировка пузырьком
+void sort_strings(LargeBlock** strings, size_t* mas_index, size_t count_str, int (*cmp_str_func)(LargeBlock**, size_t, size_t)) {
+    size_t i, j;        // i, j - переменные цикла
+    int flag_swap;      // flag_swap - флаг замены: 0 - не было замены, 1 - была замена.
+
+    for (i = 0; i < count_str - 1; i++) {       // сортировка пузырьком
+        flag_swap = 0;
+        for (j = 0; j < count_str - i - 1; j++) {
+            if (cmp_str_func(strings, mas_index[j], mas_index[j + 1])) {    // j-ая строка > j+1 строки
+                swap_mas_index(mas_index, count_str, j, j + 1);             // меняем местами индексы строк в массиве индексов mas_index
+                flag_swap = 1;                  // произошла замена
+            }
+        }
+        if (flag_swap == 0) break;  // если за полный проход по массиву не было замен, массив отсортирован, прекращаем сортировку
+    }
+}
+
+
+// Вспомогательная функция для быстрой сортировки
+// Нахождение индекса опорного элемента, по которому разделяем массив на две части: 
+//  - слева все элементы меньше и равные опорному элементу; (определяются возвращаемым значением return 0 из функции сравнения двух строк)
+//  - справа все элементы больше опорного элемента.
+// min_index и max_index - границы сортируемой области массива strings
+int support_func(LargeBlock** strings, size_t* mas_index, size_t count_str, size_t min_index, size_t max_index, int (*cmp_str_func)(LargeBlock**, size_t, size_t)) {
+
+    size_t opor_index = max_index;              // Выбираем за опорный элемент правый элемент области.
+    size_t cur_write_index = min_index - 1;     // cur_write_index - текущий индекс для записи очередного найденного элемента, меньшего или равного опорному. 
+    // Инициализируем за пределами левой границы области, так как перед записью этот индекс будет инкрементироваться,
+    // и первый записанный элемент будет по левой границе области (min_index)
+    for (size_t i = min_index; i < max_index; i++) {  // Исключаем последний элемент области из обработки, он зарезервирован под опорный элемент.
+        if (cmp_str_func(strings, mas_index[i], mas_index[opor_index]) == 0) {    // если i-ая строка <= опорной
+            cur_write_index++;
+            swap_mas_index(mas_index, count_str, cur_write_index, i);             // меняем местами индексы строк в массиве индексов mas_index
+        }
+    }
+    cur_write_index++;
+    swap_mas_index(mas_index, count_str, cur_write_index, opor_index);        // Размещаем опорный элемент на правильной позиции (после всех меньших и равных, перед большими)
+    return cur_write_index;              // новое местоположение опорного элемента
+}
+
+// Быстрая сортировка (через рекурсию)
+void sort_strings_fast(LargeBlock** strings, size_t* mas_index, size_t count_str, size_t min_index, size_t max_index, int (*cmp_str_func)(LargeBlock**, size_t, size_t)) {
+    if (min_index < max_index) {            // Если больше одного элемента в сортируемой области. Если 0 или 1 элемент, то массив отсортирован.
+        size_t opor_index = support_func(strings, mas_index, count_str, min_index, max_index, cmp_str_func);    // Индекс опорного элемента
+        sort_strings_fast(strings, mas_index, count_str, min_index, opor_index - 1, cmp_str_func);              // Сортируем левую часть от опорного элемента
+        sort_strings_fast(strings, mas_index, count_str, opor_index + 1, max_index, cmp_str_func);              // Сортируем правую часть от опорного элемента  
+    }
+}
+
+
+//**********************************************************************************
+//                             Основная программа
+//**********************************************************************************
 
 int main(int argc, char* argv[]) {
 
@@ -327,18 +509,28 @@ int main(int argc, char* argv[]) {
     // Инициализируем его значениями от 0 до count_str - 1
     for (i = 0; i < count_str; i++)     mas_index[i] = i;
 
-    print_strings(strings, mas_index, count_str);
-    print_strings_file(out_file, strings, mas_index, count_str);
+
 
     // GenerateRandomStrings ();
 
 
     // SortStrings (strings, 0);
-    // PrintStrings (strings);
 
-     // очищаем память из под элементов массива strings
-     //for (strings_i = 0; strings_i < count_LargeBlock; strings_i++) free(strings[strings_i]);        
+     //sort_strings(strings, mas_index, count_str, cmp_str_alpha);           // сравнение строк в лексикографическом порядке с учётом регистра
+     //sort_strings(strings, mas_index, count_str, cmp_str_alpha_tolower);   // сравнение строк в лексикографическом порядке без учёта регистра
+     //sort_strings(strings, mas_index, count_str, cmp_str_length);          // cравнение по длине строк, а при равенстве — лексикографическое c учетом регистра
+     //sort_strings(strings, mas_index, count_str, cmp_str_end);             // сравнение строк с конца в лексикографическом порядке с учётом регистра
 
+    sort_strings_fast(strings, mas_index, count_str, 0, count_str - 1, cmp_str_alpha);   // Быстрая сортировка. Сравнение строк в лексикографическом порядке с учётом регистра
+    //sort_strings_fast(strings, mas_index, count_str, 0, count_str - 1, cmp_str_alpha);   // Быстрая сортировка. Сравнение строк в лексикографическом порядке без учёта регистра
+    //sort_strings_fast(strings, mas_index, count_str, 0, count_str - 1, cmp_str_alpha);   // Быстрая сортировка. Сравнение по длине строк, а при равенстве — лексикографическое c учетом регистра
+    //sort_strings_fast(strings, mas_index, count_str, 0, count_str - 1, cmp_str_alpha);   // Быстрая сортировка. Сравнение строк с конца в лексикографическом порядке с учётом регистра
+
+    print_strings(strings, mas_index, count_str);                  // вывод строк на экран
+    print_strings_file(out_file, strings, mas_index, count_str);   // вывод строк в файл 
+
+
+    for (strings_i = 0; strings_i < count_LargeBlock; strings_i++) free(strings[strings_i]);   // Очищаем память из под элементов массива strings   
     free(strings);          // очищаем память из под массива указателей strings
     fclose(in_file);
     fclose(out_file);
