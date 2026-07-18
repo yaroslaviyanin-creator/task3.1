@@ -8,12 +8,13 @@ lib_main.c - главный модуль библиотеки.
 #include <malloc.h>
 #include <ctype.h>
 
+
 size_t count_str_LargeBlock = SMALL_BLOCK_HEIGHT * LARGE_BLOCK_HEIGHT;      // count_str_LargeBlock - количество строк в блоке
 size_t count_sym_LargeBlock = SMALL_BLOCK_WIDTH * LARGE_BLOCK_WIDTH;        // count_sym_LargeBlock - количество символов в блоке
 
 // Печать хелпа на экране
 void print_help() {
-    fprintf(stderr, "Arguments: <input_file> <output_file> <type_proc> <param1> <param2>\n\n");
+    fprintf(stderr, "\nArguments: <input_file> <output_file> <type_proc> <param1> <param2>\n\n");
     fprintf(stderr, "           <type_proc> = { test | sort }\n\n");
     fprintf(stderr, "           <input_file> <output_file> test <max_size_str> <count_str>\n\n");
     fprintf(stderr, "           <input_file> <output_file> sort <type_sort> <type_cmp>\n\n");
@@ -30,24 +31,45 @@ void print_help() {
 }
 
 
+// Генерация одной случайной строки в файл
+void generate_random_string_to_file(FILE* in_file, size_t max_size_str) {
 
-/*void GenerateRandomString(char* str, unsigned int max_size) {
+    // Используем буквы английского алфавита и цифры для наглядности
+    const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    int charset_size = sizeof(charset) - 1;         // Отрезаем символ конца строки '\0'
+    int rand_index;                                 // произвольный индекс
 
-unsigned int size = rand() % max_size;
-// генерация одной случайной строки
+    // Вычисляем случайную длину от 0 до max_size_str
+    size_t cur_len_str = rand() % (max_size_str + 1);
 
+    char b;                                         // Сгенерированный символ
+
+    for (int i = 0; i < cur_len_str; i++) {
+        rand_index = rand() % charset_size;
+        b = charset[rand_index];
+        fwrite(&b, 1, 1, in_file);                  // запись символа в файл
+    }
+    // вывод признака конца строки в файл 
+    b = 0x0D;   fwrite(&b, 1, 1, in_file);    // \r          
+    b = 0x0A;   fwrite(&b, 1, 1, in_file);    // \n
 }
-*/
 
-/*void GenerateRandomStrings() {
 
-    for (;;) {
-        char *p;
-        GenerateRandomString (p, 10);
-        }
+// Генерация случайных строк в файл
+void generate_random_strings_to_file(char* input_file, size_t count_str, size_t max_size_str) {
 
+    FILE* in_file = fopen(input_file, "wb");
+    if (in_file == NULL) { fprintf(stderr, "Error: Cannot open input file for test %s.\n", input_file); exit(1); }
+
+    printf("File for test opened successfully.\n");
+
+    for (int i = 0; i < count_str; i++) {
+        generate_random_string_to_file(in_file, max_size_str);
+    }
+
+    fclose(in_file);
 }
-*/
+
 
 // Получение символа по строке и его индексу в строке
 char get_sym_str(LargeBlock** strings, size_t vindex, size_t sym_index) {
@@ -130,8 +152,9 @@ void print_string_file(FILE* out_file, LargeBlock** strings, size_t vindex) {
         fwrite(&b, 1, 1, out_file);       // запись символа в файл
         i++;
     }
-    b = 0x0D;   fwrite(&b, 1, 1, out_file);         // вывод признака конца строки в файл
-    b = 0x0A;   fwrite(&b, 1, 1, out_file);
+    // вывод признака конца строки в файл
+    b = 0x0D;   fwrite(&b, 1, 1, out_file);   // \r      
+    b = 0x0A;   fwrite(&b, 1, 1, out_file);   // \n
 }
 
 
@@ -229,31 +252,13 @@ int cmp_str_alpha_tolower(LargeBlock** strings, size_t i1, size_t i2) {    // i1
 // Сравнение по длине строки, а при равенстве — лексикографическое c учетом регистра.
 int cmp_str_length(LargeBlock** strings, size_t i1, size_t i2) {    // i1, i2 - индексы сравниваемых строк
 
-    size_t cmp_i = 0;               // номера сравниваемых индексов в строках
-    char a, b;                      // сравниваемые символы двух строк: a для i1, b для i2
-    int flag_swap = 3;              // flag_swap - флаг замены при одинаковых длинах строк: 3 - символы равны
+    size_t len_i1 = index_end_str(strings, i1);       // длины строк 
+    size_t len_i2 = index_end_str(strings, i2);
 
-    while (1) {
-        a = get_sym_str(strings, i1, cmp_i);
-        b = get_sym_str(strings, i2, cmp_i);
-
-        // Если хотя бы одна строка закончилась, прерываем цикл
-        if (a == '\0' || b == '\0') break;
-
-        // Лексикографическое сравнение первых несовпадающих символов
-        if (flag_swap == 3)
-            if (a > b)        flag_swap = 1;      // i1 строка > i2 строки, приведёт дальше к перестановке их местами
-            else if (a < b)   flag_swap = 0;      // i1 строка < i2 строки, перестановка не потребуется
-        cmp_i++;                         // переходим к следующему символу
-    };
-
-    // закончилась одна из строк, проверяем их длины
-    if ((a == '\0') && (b != '\0')) return 0;   // i1 короче i2, перестановка не нужна
-    if ((a != '\0') && (b == '\0')) return 1;   // i1 длиннее i2, перестановка нужна
-
-    // cтроки равной длины
-    if (flag_swap == 1) return 1;   // но i1 строка > i2 строки, перестановка нужна
-    return 0;                       // но i1 строка <= i2 строки, перестановка не нужна
+    if (len_i1 < len_i2) return 0;          // i1 строка < i2 строки. Перестановка не нужна.
+    else if (len_i1 > len_i2) return 1;     // i1 строка > i2 строки. Перестановка нужна.
+    // строки равны по длине, делаем лексикографическое сравнение строк 
+    else return cmp_str_alpha(strings, i1, i2);
 }
 
 
@@ -315,26 +320,28 @@ void sort_strings(LargeBlock** strings, size_t* mas_index, size_t count_str, int
 size_t support_func(LargeBlock** strings, size_t* mas_index, size_t count_str, size_t min_index, size_t max_index, int (*cmp_str_func)(LargeBlock**, size_t, size_t)) {
 
     size_t opor_index = max_index;              // Выбираем за опорный элемент правый элемент области.
-    size_t cur_write_index = min_index - 1;     // cur_write_index - текущий индекс для записи очередного найденного элемента, меньшего или равного опорному. 
-    // Инициализируем за пределами левой границы области, так как перед записью этот индекс будет инкрементироваться,
-    // и первый записанный элемент будет по левой границе области (min_index)
+    size_t cur_write_index = min_index;     // cur_write_index - текущий индекс для записи очередного найденного элемента, меньшего или равного опорному. 
+
     for (size_t i = min_index; i < max_index; i++) {  // Исключаем последний элемент области из обработки, он зарезервирован под опорный элемент.
         if (cmp_str_func(strings, mas_index[i], mas_index[opor_index]) == 0) {    // если i-ая строка <= опорной
-            cur_write_index++;
             swap_mas_index(mas_index, count_str, cur_write_index, i);             // меняем местами индексы строк в массиве индексов mas_index
+            cur_write_index++;
         }
     }
-    cur_write_index++;
     swap_mas_index(mas_index, count_str, cur_write_index, opor_index);        // Размещаем опорный элемент на правильной позиции (после всех меньших и равных, перед большими)
+
     return cur_write_index;              // новое местоположение опорного элемента
 }
 
 // Быстрая сортировка (через рекурсию)
 void sort_strings_fast(LargeBlock** strings, size_t* mas_index, size_t count_str, size_t min_index, size_t max_index, int (*cmp_str_func)(LargeBlock**, size_t, size_t)) {
+
     if (min_index < max_index) {            // Если больше одного элемента в сортируемой области. Если 0 или 1 элемент, то массив отсортирован.
         size_t opor_index = support_func(strings, mas_index, count_str, min_index, max_index, cmp_str_func);    // Индекс опорного элемента
-        sort_strings_fast(strings, mas_index, count_str, min_index, opor_index - 1, cmp_str_func);              // Сортируем левую часть от опорного элемента
-        sort_strings_fast(strings, mas_index, count_str, opor_index + 1, max_index, cmp_str_func);              // Сортируем правую часть от опорного элемента  
+        if (opor_index > min_index)
+            sort_strings_fast(strings, mas_index, count_str, min_index, opor_index - 1, cmp_str_func);              // Сортируем левую часть от опорного элемента
+        if (opor_index < max_index)
+            sort_strings_fast(strings, mas_index, count_str, opor_index + 1, max_index, cmp_str_func);              // Сортируем правую часть от опорного элемента  
     }
 }
 
@@ -347,188 +354,17 @@ void sort_strings_fast(LargeBlock** strings, size_t* mas_index, size_t count_str
 
 int process_file(TArg arg_prog) {
 
-    FILE* in_file = fopen(IN_FILE, "rb");
-    if (in_file == NULL) {
-        fprintf(stderr, "Error: Cannot open input file %s\n", IN_FILE);
-        return 1;
-    }
-
-    FILE* out_file = fopen(OUT_FILE, "wb");
-    if (out_file == NULL) {
-        fprintf(stderr, "Error: Cannot create output file %s\n", OUT_FILE);
-        fclose(in_file);
-        return 1;
-    }
-
-    printf("Files opened successfully.\n");
-
-
-    char buf[N];                    // buf - считываемый блок (массив) символов из файла 
-    size_t b_read;                  // b_read - количество считанных символов в блоке
-    char b = 0x0A;                  // b - текущий символ
-    size_t i;                       // i - переменная цикла
-    size_t strings_i = 0;           // strings_i - переменная цикла для массива strings
-    size_t count_str = 0;           // count_str - количество строк в файле
-
-
-
-    //**********************************************************************************************//
-    //                                                                                              // 
-    //                   Выделяем память под шестимерный массив strings.                            //
-    //                                                                                              // 
-    //**********************************************************************************************//
-
-    //==============================================================================================
-    //                 Считаем количество строк во входном файле - первый проход файла
-    //==============================================================================================
-
-    while ((b_read = fread(buf, 1, N, in_file)) > 0) {
-        for (i = 0; i < b_read; i++) {
-            b = buf[i];                        // b - текущий (рассматриваемый) символ из считанного блока 
-            if (b == 0x0A) count_str++;        // 0x0D - символ возврата каретки
-            // 0x0A - символ перевода строки
-            // Признак конца строки:
-            // в Unix-системах — один символ 0x0A;
-            // в Windows — пара символов 0x0D и 0x0A.
-        }
-    }
-    // Если при окончании входного файла последний символ не 0x0A, т.е. есть последняя строка без завершающих символов конца строки, то
-    if ((b != 0x0A)) count_str++;              // добавляем в счетчик строк +1
-
-    size_t count_LargeBlock;                    // count_LargeBlock -  количество групп LargeBlock для хранения количества строк
-    count_LargeBlock = count_str / count_str_LargeBlock;            // Считаем сколько целых блоков набирается из строк
-    if (DIV_MOD(count_str, count_str_LargeBlock) > 0) count_LargeBlock++;   // Если есть хвостик из строк, то добавляем ещё один блок
-
-    // Выделяем память под одномерный массив указателей (под count_LargeBlock указателей)
-    LargeBlock** strings = (LargeBlock**)malloc(count_LargeBlock * sizeof(LargeBlock*));
-
-    if (strings == NULL) {
-        fprintf(stderr, "Error: Failed to allocate memory for array strings.");
-        return 1;
-    }
-
-    fseek_begin(in_file);       // Возвращаем файловый указатель (курсор) в начало файла
-
-
-    //=========================================================================================
-    //                 Считаем длины строк во входном файле - второй проход файла
-    //=========================================================================================
-
-    size_t cur_len_str = 0;                        // cur_len_str - текущая длина строки
-    size_t max_len_str = 0;                        // max_len_str - максимальная длина строки в блоке LargeBlock
-    size_t cur_count_str = 0;                      // cur_count_str - текущее количество строк в блоке LargeBlock
-    size_t count_lb = 0;                           // count_lb - количество элементов в блкое
-
-    while ((b_read = fread(buf, 1, N, in_file)) > 0) {
-        for (i = 0; i < b_read; i++) {
-            b = buf[i];                             // b - текущий (рассматриваемый) символ из считанного блока buf
-
-            if (b == 0x0A) {                        // 0x0A - символ перевода строки. Строка закончилась.
-                cur_count_str++;                    // увеличиваем счетчик текущих строк в блоке
-                if (cur_len_str > max_len_str) {    // Сверяем длину текущей строки с максимальной длиной строки в блоке
-                    max_len_str = cur_len_str;
-                }
-
-                cur_len_str = 0;                    // Обнуляем счетчмк символов для следующей строки
-
-                if (cur_count_str == count_str_LargeBlock) {    // Набралось количество строк на блок
-                    count_lb = max_len_str / count_sym_LargeBlock;                    // Считаем сколько целых блоков набирается из символов
-                    if (DIV_MOD(max_len_str, count_sym_LargeBlock) > 0) count_lb++;   // Если есть хвостик из символов, то добавляем ещё один блок вправо
-
-                    // Выделяем память под массив блоков
-                    strings[strings_i] = (LargeBlock*)malloc(count_lb * sizeof(LargeBlock));
-                    if (strings[strings_i] == NULL) {
-                        fprintf(stderr, "Error: Failed to allocate memory for array strings.");
-                        return 1;
-                    }
-                    strings_i++;    // изменяем переменную цикла для массива strings на единицу
-
-                    cur_count_str = 0;                          // обнуляем текущее количество строк для следующего блока
-                    max_len_str = 0;                            // обнуляем максимальную длину строки для следующего блока
-                }
-            }
-            else {              // строка ещё не закончилась
-                cur_len_str++;  // +1 в количество символов в строке
-            }
-        }
-    }
-    // Если при окончании входного файла последний символ не 0x0A, т.е. есть последняя строка без завершающих символов конца строки, то
-    if ((b != 0x0A)) {             // добавляем в счетчик символов последней текущей строки +1
-        cur_count_str++;
-        cur_len_str++;
-        if (cur_len_str > max_len_str) max_len_str = cur_len_str;    // Сверяем длину текущей строки с максимальной длиной строки в блоке
-
-        if (cur_count_str <= count_str_LargeBlock) {    // Хвостик строк на блок
-            count_lb = max_len_str / count_sym_LargeBlock;                    // Считаем сколько целых блоков набирается из символов
-            if (DIV_MOD(max_len_str, count_sym_LargeBlock) > 0) count_lb++;   // Если есть хвостик из символов, то добавляем ещё один блок вправо
-
-            // Выделяем память под массив блоков
-
-            strings[strings_i] = (LargeBlock*)malloc(count_lb * sizeof(LargeBlock));
-
-            if (strings[strings_i] == NULL) {
-                fprintf(stderr, "Error: Failed to allocate memory for array strings.");
-                return 1;
-            }
-        }
-    }
-
-    fseek_begin(in_file);       // Возвращаем файловый указатель (курсор) в начало файла
-
-    //================================================================================================================================================= 
-    //                                  Инициализируем массив - третий проход файла
-    //================================================================================================================================================= 
-    // strings      [ strings_i ]       [ n_lb ]          [ n2 ]                    [ m2 ]                   [ n1 ]                    [ m1 ]
-    //                    0                 0                0                         0                        0                         0
-    //                   ...               ...              ...                       ...                      ...                       ...
-    //          count_LargeBlock - 1                LARGE_BLOCK_HEIGHT - 1    LARGE_BLOCK_WIDTH - 1    SMALL_BLOCK_HEIGHT - 1    SMALL_BLOCK_WIDTH - 1
-    //=================================================================================================================================================
-
-    size_t vindex = 0, sym_index = 0;                          // текущий номер строки и символа
-
-    while ((b_read = fread(buf, 1, N, in_file)) > 0)
-        for (i = 0; i < b_read; i++) {
-            b = buf[i];                             // b - текущий (рассматриваемый) символ из считанного блока buf
-
-            if (b == 0x0D) {                        // Строка заканчивается
-                put_sym_str(strings, vindex, sym_index, '\0');   // в массив записали символ конца строки '\0'
-            }
-            else if (b == 0x0A) {   // Строка закончилась:
-                vindex++;           // меняем индекс строки на следующий,
-                sym_index = 0;      // а индекс символа обнуляем    
-            }
-            else {                  // строка ещё не закончилась
-                put_sym_str(strings, vindex, sym_index, b);    // текущий символ записали в массив
-                sym_index++;                                   // изменяем номер индекса для записи следующего символа
-            }
-        }
-
-    // Если при окончании входного файла последний символ не 0x0A, т.е. есть последняя строка без завершающих символов конца строки
-    if ((b != 0x0A)) put_sym_str(strings, vindex, sym_index, '\0');  // записываем в массив признак конца строки
-
-    //**********************************************************************************************//
-    //                                                                                              // 
-    //                   Создание массива индекса строк для сортировок                              //
-    //                                                                                              // 
-    //**********************************************************************************************//
-
-    // Выделяем память под одномерный массив индексов mas_index
-    size_t* mas_index = (size_t*)malloc(count_str * sizeof(size_t));
-    // Инициализируем его значениями от 0 до count_str - 1
-    for (i = 0; i < count_str; i++)     mas_index[i] = i;
-
-
-
-    // GenerateRandomStrings ();
-
-    int (*cmp_str_func)(LargeBlock**, size_t, size_t) = cmp_str_alpha;
-
     if (strcmp(arg_prog.type_proc, "test") == 0) {                  // arg_prog.type_proc = "test" - генерация файла строк
+        // Инициализируем генератор случайных чисел текущим временем
+        srand((unsigned int)time(NULL));
 
+        generate_random_strings_to_file(arg_prog.input_file, arg_prog.count_str, arg_prog.max_size_str);
+        return 0;
     }
-    else if (strcmp(arg_prog.type_proc, "sort") == 0) {             // arg_prog.type_proc = "sort" - сортировка строк
-        // arg_prog.type_sort = "slow" - сортировка пузырьком
-        // arg_prog.type_sort = "fast" - быстрая сортировка
+
+    int (*cmp_str_func)(LargeBlock**, size_t, size_t) = cmp_str_alpha;    // переменная для указателя на функцию для выбора типа сравнения строк
+
+    if (strcmp(arg_prog.type_proc, "sort") == 0)              // arg_prog.type_proc = "sort" - сортировка строк
         switch (arg_prog.type_cmp) {
         case 1:     // 1 - сортировка в лексикографическом порядке с учётом регистра
             cmp_str_func = cmp_str_alpha;
@@ -546,29 +382,193 @@ int process_file(TArg arg_prog) {
             break;
         }
 
-        if (strcmp(arg_prog.type_sort, "slow") != 0) {
-            sort_strings(strings, mas_index, count_str, cmp_str_func);
+
+    FILE* in_file = fopen(arg_prog.input_file, "rb");
+    if (in_file == NULL) {
+        fprintf(stderr, "Error: Cannot open input file %s\n", arg_prog.input_file);
+        return 1;
+    }
+
+    FILE* out_file = fopen(arg_prog.output_file, "wb");
+    if (out_file == NULL) {
+        fprintf(stderr, "Error: Cannot create output file %s\n", arg_prog.output_file);
+        fclose(in_file);
+        return 1;
+    }
+
+    printf("Files opened successfully.\n");
+
+
+    char buf[N];                    // buf - считываемый блок (массив) символов из файла 
+    size_t b_read;                  // b_read - количество считанных символов в блоке
+    char b = 0;                     // b - текущий символ
+    size_t i;                       // i - переменная цикла
+    size_t strings_i = 0;           // strings_i - переменная цикла для массива strings
+    size_t count_str = 0;           // count_str - количество строк в файле
+    int flag_has_data = 0;          // был ли хоть один байт в файле
+
+
+    //**********************************************************************************************//
+    //                                                                                              // 
+    //                   Выделяем память под шестимерный массив strings.                            //
+    //                                                                                              // 
+    //**********************************************************************************************//
+
+    //==============================================================================================
+    //                 Считаем количество строк во входном файле - первый проход файла
+    //==============================================================================================
+
+    char pred_b = 0;    // предыдущий считанный символ
+
+    while ((b_read = fread(buf, 1, N, in_file)) > 0) {
+        flag_has_data = 1;      // flag_has_data = 1 - есть данные в файле
+        for (i = 0; i < b_read; i++) {
+            b = buf[i];             // b - текущий (рассматриваемый) символ из считанного блока 
+
+            // Если встретили \n и перед ним был \r — это конец строки
+            if (b == 0x0A && pred_b == 0x0D) count_str++;        // 0x0D - символ возврата каретки \r
+            // 0x0A - символ перевода строки \n
+            pred_b = b;
         }
-        else if (strcmp(arg_prog.type_sort, "fast") != 0) {
-            sort_strings_fast(strings, mas_index, count_str, 0, count_str - 1, cmp_str_func);
+    }
+    if (flag_has_data) { // Если файл не пустой 
+        // И поcледний символ не перевод строки
+        if (pred_b != 0x0A) count_str++;              // добавляем в счетчик строк +1
+    }
+
+    size_t count_LargeBlock;                    // count_LargeBlock -  количество групп LargeBlock для хранения количества строк
+
+    count_LargeBlock = count_str / count_str_LargeBlock;                    // Считаем сколько целых блоков набирается из строк
+    if (DIV_MOD(count_str, count_str_LargeBlock) > 0) count_LargeBlock++;   // Если есть хвостик из строк, то добавляем ещё один блок
+
+    // Выделяем память под одномерный массив указателей (под count_LargeBlock указателей)
+    LargeBlock** strings = (LargeBlock**)malloc(count_LargeBlock * sizeof(LargeBlock*));
+
+    if (strings == NULL) { fprintf(stderr, "Error: Failed to allocate memory for array strings."); return 1; }
+
+    fseek_begin(in_file);       // Возвращаем файловый указатель (курсор) в начало файла
+
+
+    //=========================================================================================
+    //                 Считаем длины строк во входном файле - второй проход файла
+    //=========================================================================================
+
+    size_t cur_len_str = 0;                        // cur_len_str - текущая длина строки
+    size_t max_len_str = 0;                        // max_len_str - максимальная длина строки в блоке LargeBlock
+    size_t cur_count_str = 0;                      // cur_count_str - текущее количество строк в блоке LargeBlock
+    size_t count_lb = 0;                           // count_lb - количество элементов в блкое
+
+    flag_has_data = 0;                              // пока не считано ни одного байта из файла
+
+    while ((b_read = fread(buf, 1, N, in_file)) > 0) {
+        flag_has_data = 1;                      // появились данные
+        for (i = 0; i < b_read; i++) {
+            b = buf[i];                         // b - текущий (рассматриваемый) символ из считанного блока buf
+
+            // Конец строки
+            if (b == 0x0A) {
+                cur_count_str++;               // увеличиваем счетчик текущих строк в блоке
+                if (cur_len_str > max_len_str) max_len_str = cur_len_str; // Сверяем длину текущей строки с максимальной длиной строки в блоке
+                cur_len_str = 0;               // Обнуляем счетчмк символов для следующей строки
+
+                if (cur_count_str == count_str_LargeBlock) {    // Набралось количество строк на блок
+                    count_lb = max_len_str / count_sym_LargeBlock;                    // Считаем сколько целых блоков по горизонтали набирается из символов
+                    if (DIV_MOD(max_len_str, count_sym_LargeBlock) > 0) count_lb++;   // Если есть хвостик из символов, то добавляем ещё один блок вправо
+
+                    // Выделяем память под массив блоков
+                    strings[strings_i] = (LargeBlock*)malloc(count_lb * sizeof(LargeBlock));
+
+                    if (strings[strings_i] == NULL) { fprintf(stderr, "Error: Failed to allocate memory for array strings."); return 1; }
+
+                    strings_i++;    // изменяем переменную цикла для массива strings на единицу
+
+                    cur_count_str = 0;               // обнуляем текущее количество строк для следующего блока
+                    max_len_str = 0;                 // обнуляем максимальную длину строки для следующего блока
+                }
+            }
+            else cur_len_str++;         // строка ещё не закончилась, +1 в количество символов в строке
+        }
+    }
+    // Если файл не пустой 
+    if (flag_has_data) {
+        if (cur_len_str > 0) {     // и последняя строка не закончена
+            cur_count_str++;           // текущее количество строк
+            cur_len_str++;             // текущая длина строки + 1 под символ '\0'
+            if (cur_len_str > max_len_str) max_len_str = cur_len_str;    // Сверяем длину текущей строки с максимальной длиной строки в блоке
+        }
+        if ((cur_count_str > 0) && (cur_count_str <= count_str_LargeBlock)) {    // Хвостик строк на блок
+            count_lb = max_len_str / count_sym_LargeBlock;                    // Считаем сколько целых блоков набирается из символов
+            if (DIV_MOD(max_len_str, count_sym_LargeBlock) > 0) count_lb++;   // Если есть хвостик из символов, то добавляем ещё один блок вправо
+
+            // Выделяем память под массив блоков
+            strings[strings_i] = (LargeBlock*)malloc(count_lb * sizeof(LargeBlock));
+
+            if (strings[strings_i] == NULL) { fprintf(stderr, "Error: Failed to allocate memory for array strings."); return 1; }
         }
     }
 
+    fseek_begin(in_file);       // Возвращаем файловый указатель (курсор) в начало файла
+
+    //================================================================================================================================================= 
+    //                                  Инициализируем массив - третий проход файла
+    //================================================================================================================================================= 
+    // strings      [ strings_i ]       [ n_lb ]          [ n2 ]                    [ m2 ]                   [ n1 ]                    [ m1 ]
+    //                    0                 0                0                         0                        0                         0
+    //                   ...               ...              ...                       ...                      ...                       ...
+    //          count_LargeBlock - 1                LARGE_BLOCK_HEIGHT - 1    LARGE_BLOCK_WIDTH - 1    SMALL_BLOCK_HEIGHT - 1    SMALL_BLOCK_WIDTH - 1
+    //=================================================================================================================================================
+
+    size_t vindex = 0, sym_index = 0;               // текущий номер строки и символа
+
+    flag_has_data = 0;                              // пока не считано ни одного байта из файла
+
+    while ((b_read = fread(buf, 1, N, in_file)) > 0) {
+        flag_has_data = 1;                      // появились данные
+
+        for (i = 0; i < b_read; i++) {
+            b = buf[i];                             // b - текущий (рассматриваемый) символ из считанного блока buf
+
+            // Конец строки
+            if (b == 0x0A) {
+                put_sym_str(strings, vindex, sym_index, '\0');   // в массив записали символ конца строки '\0'
+                vindex++;           // меняем индекс строки на следующий,
+                sym_index = 0;      // а индекс символа обнуляем    
+            }
+            // Cтрока ещё не закончилась
+            else {
+                put_sym_str(strings, vindex, sym_index, b);    // текущий символ записали в массив
+                sym_index++;                                   // изменяем номер индекса для записи следующего символа
+            }
+        }
+    }
+    // Если файл не пустой и последняя строка не завершена
+    if (flag_has_data && (sym_index > 0)) {
+        put_sym_str(strings, vindex, sym_index, '\0');  // записываем в массив признак конца строки
+    }
 
 
+    //**********************************************************************************************//
+    //                                                                                              // 
+    //                   Создание массива индекса строк для сортировок                              //
+    //                                                                                              // 
+    //**********************************************************************************************//
+
+    // Выделяем память под одномерный массив индексов mas_index
+    size_t* mas_index = (size_t*)malloc(count_str * sizeof(size_t));
+
+    if (mas_index == NULL) { fprintf(stderr, "Error: Failed to allocate memory for array indexes."); return 1; }
+
+    // Инициализируем его значениями от 0 до count_str - 1
+    for (i = 0; i < count_str; i++)     mas_index[i] = i;
 
 
+    if (strcmp(arg_prog.type_sort, "slow") == 0) {              // arg_prog.type_sort = "slow" - сортировка пузырьком
+        sort_strings(strings, mas_index, count_str, cmp_str_func);
+    }
+    else if (strcmp(arg_prog.type_sort, "fast") == 0) {         // arg_prog.type_sort = "fast" - быстрая сортировка
+        sort_strings_fast(strings, mas_index, count_str, 0, count_str - 1, cmp_str_func);
+    }
 
-
-    //sort_strings(strings, mas_index, count_str, cmp_str_alpha);           // сравнение строк в лексикографическом порядке с учётом регистра
-    //sort_strings(strings, mas_index, count_str, cmp_str_alpha_tolower);   // сравнение строк в лексикографическом порядке без учёта регистра
-    //sort_strings(strings, mas_index, count_str, cmp_str_length);          // cравнение по длине строк, а при равенстве — лексикографическое c учетом регистра
-    //sort_strings(strings, mas_index, count_str, cmp_str_end);             // сравнение строк с конца в лексикографическом порядке с учётом регистра
-
-   //sort_strings_fast(strings, mas_index, count_str, 0, count_str - 1, cmp_str_alpha);   // Быстрая сортировка. Сравнение строк в лексикографическом порядке с учётом регистра
-   //sort_strings_fast(strings, mas_index, count_str, 0, count_str - 1, cmp_str_alpha_tolower);   // Быстрая сортировка. Сравнение строк в лексикографическом порядке без учёта регистра
-   //sort_strings_fast(strings, mas_index, count_str, 0, count_str - 1, cmp_str_length);   // Быстрая сортировка. Сравнение по длине строк, а при равенстве — лексикографическое c учетом регистра
-   //sort_strings_fast(strings, mas_index, count_str, 0, count_str - 1, cmp_str_end);   // Быстрая сортировка. Сравнение строк с конца в лексикографическом порядке с учётом регистра
 
     print_strings(strings, mas_index, count_str);                  // вывод строк на экран
     print_strings_file(out_file, strings, mas_index, count_str);   // вывод строк в файл 

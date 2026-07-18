@@ -31,31 +31,34 @@ int main(int argc, char* argv[]) {
     arg_prog.input_file = argv[1];
     arg_prog.output_file = argv[2];
     arg_prog.type_proc = argv[3];
+    arg_prog.count_str = 0;
+    arg_prog.max_size_str = 0;
+    arg_prog.type_cmp = 1;
 
     if (strcmp(arg_prog.type_proc, "test") == 0) {                  // arg_prog.type_proc = "test" - генерация файла строк
 
-        arg_prog.max_size_str = strtol(argv[4], &sym_error, 10);    // arg_prog.max_size_str -       максимальный размер генерируемой строки
+        arg_prog.count_str = strtol(argv[4], &sym_error, 10);    // arg_prog.max_size_str -       максимальный размер генерируемой строки
 
         if (sym_error == argv[4]) {     // Проверка, были ли вообще цифры ("Ошибка: В строке нет цифр."))
-            fprintf(stderr, "Error: There are no numbers in the string.  argv[4] = %s    <max_size_str> = <number>\n", argv[4]); return 0;
-        }
-        else if (*sym_error != '\0') {  // "Ошибка: после числа есть лишние символы."
-            fprintf(stderr, "Error: There are extra character after the number: \"%c\".    <max_size_str> = <number>\n", *sym_error); return 0;
-        }
-        if ((arg_prog.max_size_str = 0) || (argv[4][0] == '-')) {  // "Ошибка: Некорректное значение аргумента <max_size_str>. Должно быть > 0."
-            fprintf(stderr, "Error: Incorrect argument value <max_size_str>. Must be > 0.\n"); return 0;
-        }
-
-        arg_prog.count_str = strtol(argv[5], &sym_error, 10);       // arg_prog.count_str - количество генерируемых строк
-
-        if (sym_error == argv[5]) {     // Проверка, были ли вообще цифры ("Ошибка: В строке нет цифр."))
-            fprintf(stderr, "Error: There are no numbers in the string.  argv[5] = %s    <count_str> = <number>\n", argv[5]); return 0;
+            fprintf(stderr, "Error: There are no numbers in the string.  argv[4] = %s    <count_str> = <number>\n", argv[4]); return 0;
         }
         else if (*sym_error != '\0') {  // "Ошибка: после числа есть лишние символы."
             fprintf(stderr, "Error: There are extra character after the number: \"%c\".    <count_str> = <number>\n", *sym_error); return 0;
         }
-        if ((arg_prog.count_str < 1) || (argv[5][0] == '-')) {  // "Ошибка: Некорректное значение аргумента <count_str>. Должно быть > 1."
+        if ((arg_prog.count_str == 0) || (argv[4][0] == '-')) {  // "Ошибка: Некорректное значение аргумента <count_str>. Должно быть > 0."
             fprintf(stderr, "Error: Incorrect argument value <count_str>. Must be > 0.\n"); return 0;
+        }
+
+        arg_prog.max_size_str = strtol(argv[5], &sym_error, 10);       // arg_prog.count_str - количество генерируемых строк
+
+        if (sym_error == argv[5]) {     // Проверка, были ли вообще цифры ("Ошибка: В строке нет цифр."))
+            fprintf(stderr, "Error: There are no numbers in the string.  argv[5] = %s    <max_size_str> = <number>\n", argv[5]); return 0;
+        }
+        else if (*sym_error != '\0') {  // "Ошибка: после числа есть лишние символы."
+            fprintf(stderr, "Error: There are extra character after the number: \"%c\".    <max_size_str> = <number>\n", *sym_error); return 0;
+        }
+        if ((arg_prog.max_size_str < 1) || (argv[5][0] == '-')) {  // "Ошибка: Некорректное значение аргумента <max_size_str>. Должно быть > 1."
+            fprintf(stderr, "Error: Incorrect argument value <max_size_str>. Must be > 0.\n"); return 0;
         }
     }
     else if (strcmp(arg_prog.type_proc, "sort") == 0) {   // arg_prog.type_proc = "sort" - сортировка строк
