@@ -8,9 +8,9 @@ lib_main.h - заголовочный файл модуля lib_main.c.
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
+#include <string.h>
 
-#define IN_FILE     "in.txt"        // входной файл
-#define OUT_FILE    "out.txt"       // выходной файл
 #define N           10              // размер блока для считывания символов из файла
 
 #define DIV_MOD(X, Y) (((X) == 0) ? 0 : ((X)%(Y)))  // остаток
@@ -22,14 +22,8 @@ lib_main.h - заголовочный файл модуля lib_main.c.
 #define LARGE_BLOCK_WIDTH	4       // M2 по условию (количество столбцов)
 
 
-#define GEN_MAX_LEN_STR     67      // максимальная длина генерируемой строки
-#define GEN_COUNT_STR       123     // количество генерируемых строк
-
 typedef char SmallBlock[SMALL_BLOCK_HEIGHT][SMALL_BLOCK_WIDTH];
 typedef SmallBlock LargeBlock[LARGE_BLOCK_HEIGHT][LARGE_BLOCK_WIDTH];
-
-//size_t count_str_LargeBlock = SMALL_BLOCK_HEIGHT * LARGE_BLOCK_HEIGHT;      // count_str_LargeBlock - количество строк в блоке
-//size_t count_sym_LargeBlock = SMALL_BLOCK_WIDTH * LARGE_BLOCK_WIDTH;        // count_sym_LargeBlock - количество символов в блоке
 
 
 // Структура элемента массива входных аргументов
@@ -38,6 +32,7 @@ typedef struct {
     char* output_file;      // выходной файл
     char* type_proc;        // "test" - генерация файла строк
     // "sort" - сортировка строк
+
     size_t max_size_str;    // максимальный размер генерируемой строки
     size_t count_str;       // количество генерируемых строк
     char* type_sort;        // "slow" - сортировка пузырьком
